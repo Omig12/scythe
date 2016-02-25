@@ -1,57 +1,45 @@
-PROGRAM_NAME = scythe
-VERSION = 0.991
+PROGRAM_NAME = sickle
+VERSION = 1.33
 CC = gcc
-DEBUG ?= 0
-CFLAGS = -Wall -pedantic -DVERSION=$(VERSION) -std=gnu99
-ifeq ($(DEBUG), 1)
-	CFLAGS += -g -O0
-else 
-	CFLAGS += -O3
-endif
+CFLAGS = -Wall -pedantic -DVERSION=$(VERSION)
+DEBUG = -g
+OPT = -O3
 ARCHIVE = $(PROGRAM_NAME)_$(VERSION)
-LDFLAGS = -lz -lm
-LDTESTFLAGS = -lcheck
+LDFLAGS=
+LIBS = -lz
 SDIR = src
-OBJS = match.o scythe.o util.o prob.o 
-LOBJS = match.o util.o prob.o 
 
+.PHONY: clean default build distclean dist debug
 
-.PHONY: clean default all distclean dist tests testclean lib
+default: build
 
-default: all
+sliding.o: $(SDIR)/sliding.c $(SDIR)/kseq.h $(SDIR)/sickle.h
+	$(CC) $(CFLAGS) $(OPT) -c $(SDIR)/$*.c
 
-%.o: $(SDIR)/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+trim_single.o: $(SDIR)/trim_single.c $(SDIR)/sickle.h $(SDIR)/kseq.h
+	$(CC) $(CFLAGS) $(OPT) -c $(SDIR)/$*.c
 
-match.o: $(SDIR)/scythe.h
-scythe.o: $(SDIR)/kseq.h $(SDIR)/scythe.h
-util.o: $(SDIR)/kseq.h $(SDIR)/scythe.h
-prob.o: $(SDIR)/scythe.h
-test.o: $(SDIR)/scythe.h
+trim_paired.o: $(SDIR)/trim_paired.c $(SDIR)/sickle.h $(SDIR)/kseq.h
+	$(CC) $(CFLAGS) $(OPT) -c $(SDIR)/$*.c
 
-valgrind: build
-	valgrind --leak-check=full --show-reachable=yes ./scythe -a solexa_adapters.fa test.fastq
+sickle.o: $(SDIR)/sickle.c $(SDIR)/sickle.h
+	$(CC) $(CFLAGS) $(OPT) -c $(SDIR)/$*.c
 
-test: clean match.o util.o prob.o test.o
-	$(CC) $(CFLAGS) $? -o test $(LDFLAGS) $(LDTESTFLAGS) && ./test
-
-testclean:
-	rm -rf ./tests
+print_record.o: $(SDIR)/print_record.c $(SDIR)/print_record.h
+	$(CC) $(CFLAGS) $(OPT) -c $(SDIR)/$*.c
 
 clean:
-	rm -rf *.o ./scythe *.dSYM
+	rm -rf *.o $(SDIR)/*.gch ./sickle
 
 distclean: clean
 	rm -rf *.tar.gz
 
 dist:
-	tar -zcf $(ARCHIVE).tar.gz src Makefile
+	tar -zcf $(ARCHIVE).tar.gz src Makefile README.md sickle.xml LICENSE
 
-all: $(OBJS)
-	$(CC) $(CFLAGS) $? -o scythe $(LDFLAGS)
+build: sliding.o trim_single.o trim_paired.o sickle.o print_record.o
+	$(CC) $(CFLAGS) $(OPT) $? -o sickle $(LIBS) $(LDFLAGS)
 
-lib: libscythe.so
+debug:
+	$(MAKE) build "CFLAGS=-Wall -pedantic -g -DDEBUG"
 
-libscythe.so: CFLAGS += -fpic
-libscythe.so: $(LOBJS)
-	$(CC) $(CFLAGS) -shared -o $@ $^ $(LDFLAGS)
